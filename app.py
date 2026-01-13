@@ -95,33 +95,24 @@ with tab2:
             st.rerun()
 
 with tab3:
-    st.header("Upload POs")
-    files = st.file_uploader("Select PDFs", accept_multiple_files=True, type=['pdf'])
-    if st.button("Process Files") and files:
-        with get_db_session() as session:
-            for f in files:
-                doc = fitz.open(stream=f.getvalue(), filetype="pdf")
-                text_content = "".join(page.get_text() for page in doc)
-                items = extract_items(text_content, f.name)
-                for item in items:
-                    po_id = str(item.get('PO #', ''))
-                    ex_fty = apply_ex_factory_logic(item.get('Location', ''), item.get('Delivery Date', ''))
-                    
-                    existing = session.get(POItem, po_id)
-                    if existing:
-                        existing.is_amended = True
-                        existing.delivery_date = item.get('Delivery Date')
-                        existing.ex_factory_date = ex_fty
-                    else:
-                        session.add(POItem(
-                            id=po_id, po_number=po_id,
-                            ean=str(item.get('EAN NO', '')),
-                            delivery_date=item.get('Delivery Date'),
-                            ex_factory_date=ex_fty,
-                            location=item.get('Location'),
-                            quantity=int(item.get('Quantity', 0))
-                        ))
-            session.commit()
-        st.cache_data.clear()
-        st.success("Done!")
-        st.rerun()
+   items = extract_items(text_content, f.name)
+
+for item in items:
+    po_val = str(item.get('PO #', ''))
+    ean_val = str(item.get('EAN NO', ''))
+    
+    # We create a NEW row for every item found in the PDF
+    new_item_row = POItem(
+        po_number=po_val,
+        ean=ean_val,
+        delivery_date=item.get('Delivery Date'),
+        location=item.get('Location'),
+        quantity=int(item.get('Quantity', 0)),
+        ex_factory_date=apply_ex_factory_logic(item.get('Location'), item.get('Delivery Date')),
+        filename=f.name,
+        status="Pending",
+        is_amended=False
+    )
+    session.add(new_item_row) 
+
+session.commit()
