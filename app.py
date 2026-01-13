@@ -2,12 +2,36 @@ import streamlit as st
 import os
 from datetime import datetime
 # Keep your existing imports
-from database import initialize_db, get_db_session
+from database import initialize_db, get_db_session, SessionLocal
 from models import User, POItem, StyleMaster
 from config import FACTORIES, TRANSPORTERS, BUYERS
+from werkzeug.security import generate_password_hash
 
 # 1. Initialize Database (Same as your Flask app)
 initialize_db()
+# --- TEMPORARY ADMIN CREATOR ---
+# This will appear in the sidebar of your login screen
+st.sidebar.title("First Time Setup")
+if st.sidebar.button("Create Master Admin"):
+    db = SessionLocal()
+    try:
+        # Check if admin already exists
+        exists = db.query(User).filter(User.username == "admin").first()
+        if not exists:
+            new_admin = User(
+                username="admin",
+                password=generate_password_hash("Admin@123"),
+                role="admin"
+            )
+            db.add(new_admin)
+            db.commit()
+            st.sidebar.success("Admin created! User: admin | Pass: Admin@123")
+        else:
+            st.sidebar.info("Admin account already exists.")
+    except Exception as e:
+        st.sidebar.error(f"Error: {e}")
+    finally:
+        db.close()
 
 # 2. Setup Session State for Security
 if 'authenticated' not in st.session_state:
@@ -70,6 +94,7 @@ else:
     elif choice == "Style Master":
         st.header("Style Master Management")
         # Logic to view/add styles from your StyleMaster model
+
 
 
 
