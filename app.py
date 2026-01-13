@@ -166,51 +166,52 @@ with tab3:
     
     uploaded_files = st.file_uploader("Select PDF Files", accept_multiple_files=True, type=['pdf'])
     
-    if st.button("Process All Files", type="primary") and uploaded_files:
-        processed_count = 0
-        with get_db_session() as session:
-            for f in uploaded_files:
-                try:
-                    # Fix: Use getvalue() to ensure the stream is read correctly
-                    file_bytes = f.getvalue() 
-                    doc = fitz.open(stream=file_bytes, filetype="pdf")
+  if st.button("Process All Files", type="primary") and uploaded_files:
+    processed_count = 0
+    with get_db_session() as session:
+        for f in uploaded_files:
+            try:  # <--- Start of the try block
+                file_bytes = f.getvalue()
+                doc = fitz.open(stream=file_bytes, filetype="pdf")
+                text = "".join(page.get_text() for page in doc)
+                items = extract_items(text, f.name)
+                
+                for item in items:
+                    po_num = str(item.get('PO #', ''))
+                    ex_fty = apply_ex_factory_logic(item.get('Location', ''), item.get('Delivery Date', ''))
                     
-                    text = ""
-                    for page in doc:
-                        text += page.get_text()
+                    # Logic to check for existing/amended POs
+                    existing_po = session.get(POItem, po_num)
                     
-                    # Extract items using your logic
-                    items = extract_items(text, f.name)
-                    
-                    for item in items:
-                        # Apply your location-based date rule [cite: 2026-01-11]
-                        ex_fty = apply_ex_factory_logic(item.get('Location'), item.get('Delivery Date'))
-                        
-                po_entry = POItem(
-                           po_number=str(item.get('PO #', '')), # Force as string
-                           ean=str(item.get('EAN NO', '')),    # Force as string
-                           delivery_date=item.get('Delivery Date', ''),
-                           ex_factory_date=ex_fty,
-                           location=item.get('Location', ''),
-                           quantity=int(item.get('Quantity', 0)), # Force as integer
-                           status="Pending",
-                           # Default empty strings for optional fields to avoid NULL errors
-                           factory_remarks="",
-                           ocn="",
-                           factory=""
-                                 )
-                        # merge handles updates if the PO # already exists
-                        session.merge(po_entry)
-                    
-                    processed_count += 1
-                except Exception as e:
-                    st.error(f"Error processing {f.name}: {e}")
-            
-            session.commit()
-            
-        if processed_count > 0:
-            st.success(f"Successfully processed {processed_count} files!")
-            st.rerun()
+                    if existing_po:
+                        existing_po.delivery_date = item.get('Delivery Date', '')
+                        existing_po.ex_factory_date = ex_fty
+                        existing_po.is_amended = True
+                        st.info(f"Updated Amended PO: {po_num}")
+                    else:
+                        po_entry = POItem(
+                            po_number=po_num,
+                            ean=str(item.get('EAN NO', '')),
+                            delivery_date=item.get('Delivery Date', ''),
+                            ex_factory_date=ex_fty,
+                            location=item.get('Location', ''),
+                            quantity=int(item.get('Quantity', 0)),
+                            status="Pending",
+                            is_amended=False
+                        )
+                        session.add(po_entry)
+                
+                processed_count += 1
+                doc.close()
+
+            except Exception as e:  # <--- This MUST be at the same level as the 'try'
+                st.error(f"Error processing {f.name}: {e}")
+
+        session.commit() # Save everything to the database
+        
+    if processed_count > 0:
+        st.success(f"Successfully processed {processed_count} files!")
+        st.rerun() 
 
 # --- TAB 4: MONTHLY SUMMARY ---
 with tab4:
@@ -240,6 +241,7 @@ with tab4:
                 file_name="monthly_summary.csv",
                 mime="text/csv"
             )
+
 
 
 
