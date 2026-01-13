@@ -6,7 +6,17 @@ from datetime import datetime, timedelta
 from database import get_db_session
 from models import POItem, StyleMaster
 from extractor import extract_items
-from database import engine, Base
+if st.sidebar.button("⚠️ EMERGENCY: Reset PO Table"):
+    from database import engine, Base
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        # This force-deletes the old "Integer" table
+        conn.execute(text("DROP TABLE IF EXISTS po_items CASCADE"))
+        conn.commit()
+    
+    # This creates the new "String" table based on your current models.py
+    Base.metadata.create_all(engine)
+    st.sidebar.success("Database Reset! You can now upload large PO numbers.")
 # Assuming these exist in your project:
 # from utils.helpers import calculate_exfactory_flag, calc_no_of_boxes 
 
@@ -266,6 +276,7 @@ with tab4:
                 file_name="monthly_summary.csv",
                 mime="text/csv"
             )
+
 
 
 
