@@ -4,7 +4,7 @@ import io
 import fitz
 from datetime import datetime, timedelta
 from database import get_db_session
-from models import POItem, StyleMaster, Base
+from models.po_item import POItem, StyleMaster, Base
 from extractor import extract_items
 if st.sidebar.button("⚠️ EMERGENCY: Reset PO Table"):
     from database import engine, Base
@@ -278,6 +278,7 @@ with tab4:
                 file_name="monthly_summary.csv",
                 mime="text/csv"
             )
+
 
 
 
