@@ -192,7 +192,7 @@ with tab3:
 with tab4:
   st.header("📈 Monthly Summary Report")
     
-     if not df.empty:
+  if not df.empty:
         # Create the Pivot Table
         summary_df = df[df['status'] == 'Pending']
         if not summary_df.empty:
@@ -216,6 +216,7 @@ with tab4:
                 file_name="monthly_summary.csv",
                 mime="text/csv"
             )
+
 
 
 
