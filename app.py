@@ -95,35 +95,125 @@ with tab1:
             st.success("Changes saved successfully!")
     else:
         st.info("No records found. Please upload a PO PDF to begin.")
+        if not df.empty:
+    # Convert DataFrame to Excel format in memory
+    import io
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='PO_Report')
+    
+    st.download_button(
+        label="📥 Download Full Dashboard as Excel",
+        data=buffer.getvalue(),
+        file_name=f"PO_Master_Report_{datetime.now().strftime('%Y%m%d')}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 # --- TAB 2: STYLE MASTER ---
 with tab2:
-    st.header("Style Master")
-    # Add your Style Master form and table logic here
-    st.write("Manage EAN, Style, and Buyer relationships here.")
+    st.header("🏢 Style Master (Manual Entry)")
+    
+    # Form to manually enter data
+    with st.form("add_style_mapping", clear_on_submit=True):
+        col1, col2, col3 = st.columns(3)
+        ean_input = col1.text_input("Enter EAN")
+        style_input = col2.text_input("Enter Style No")
+        buyer_input = col3.text_input("Enter Buyer Name")
+        
+        if st.form_submit_button("Add to Master"):
+            if ean_input:
+                with get_db_session() as session:
+                    # session.merge updates if EAN exists, or creates new if it doesn't
+                    new_entry = StyleMaster(ean=ean_input, style_no=style_input, buyer=buyer_input)
+                    session.merge(new_entry)
+                    session.commit()
+                st.success(f"Saved: {ean_input} -> {style_input}")
+                st.rerun()
+            else:
+                st.error("EAN is required!")
+
+    st.divider()
+    
+    # View and Delete Existing Records
+    st.subheader("Existing Mappings")
+    with get_db_session() as session:
+        all_styles = session.query(StyleMaster).all()
+        if all_styles:
+            for s in all_styles:
+                c1, c2, c3, c4 = st.columns([2, 2, 2, 1])
+                c1.write(f"**EAN:** {s.ean}")
+                c2.write(f"**Style:** {s.style_no}")
+                c3.write(f"**Buyer:** {s.buyer}")
+                if c4.button("❌ Delete", key=f"del_style_{s.id}"):
+                    session.delete(s)
+                    session.commit()
+                    st.rerun()
+        else:
+            st.info("No records found. Use the form above to add your first style.")
 
 # --- TAB 3: UPLOAD ---
 with tab3:
-    st.header("Upload PO PDFs")
-    uploaded_files = st.file_uploader("Choose PDF files", accept_multiple_files=True)
-    if st.button("Process Uploads") and uploaded_files:
-        # Use apply_ex_factory_logic here during processing
-        st.success("Files processed!")
+    st.header("Upload Multiple PO PDFs")
+    files = st.file_uploader("Select PDF Files", accept_multiple_files=True, type=['pdf'])
+    
+    if st.button("Process All Files") and files:
+        with get_db_session() as session:
+            for f in files:
+                doc = fitz.open(stream=f.read(), filetype="pdf")
+                text = "".join(p.get_text() for p in doc)
+                items = extract_items(text, f.name)
+                
+                for item in items:
+                    # Apply your location rule [cite: 2026-01-11]
+                    ex_fty = apply_ex_factory_logic(item.get('Location'), item.get('Delivery Date'))
+                    
+                    po_entry = POItem(
+                        po_number=item.get('PO #'),
+                        ean=item.get('EAN NO'),
+                        delivery_date=item.get('Delivery Date'),
+                        ex_factory_date=ex_fty,
+                        location=item.get('Location'),
+                        quantity=item.get('Quantity', 0),
+                        status="Pending"
+                    )
+                    # Use merge to handle amended/duplicate POs
+                    session.merge(po_entry)
+            
+            # 1. CRITICAL: Ensure changes are saved to the file
+            session.commit() 
+            
+        st.success(f"Successfully processed {len(files)} files!")
+        
+        # 2. CRITICAL: Force the app to restart from the top 
+        # so the 'Universal Data Loading' section catches the new rows.
+        st.rerun()
 
 # --- TAB 4: MONTHLY SUMMARY ---
 with tab4:
-    st.header("Pending Summary By Month")
+  st.header("📈 Monthly Summary Report")
+    
     if not df.empty:
+        # Create the Pivot Table
         summary_df = df[df['status'] == 'Pending']
-        
-        # Display a simple preview
-        st.dataframe(summary_df[['buyer', 'style_no', 'quantity', 'delivery_date']], use_container_width=True)
-        
-        # Download Logic
-        csv = summary_df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📄 Download Summary as CSV",
-            data=csv,
-            file_name=f"pending_summary_{datetime.now().strftime('%Y-%m-%d')}.csv",
-            mime='text/csv',
-        )
+        if not summary_df.empty:
+            pivot = summary_df.pivot_table(
+                index=['buyer', 'style_no'],
+                values='quantity',
+                aggfunc='sum'
+            )
+            
+            # Displaying for Print
+            st.write("### Pending Orders Summary")
+            st.table(pivot) # st.table looks better for printing than st.dataframe
+            
+            st.info("💡 **To Save as PDF:** Press **Ctrl + P** (Windows) or **Cmd + P** (Mac) and select 'Save as PDF' as your printer.")
+            
+            # Also provide Excel version of summary
+            csv_summary = pivot.to_csv().encode('utf-8')
+            st.download_button(
+                label="📥 Download Summary CSV",
+                data=csv_summary,
+                file_name="monthly_summary.csv",
+                mime="text/csv"
+            )
+
