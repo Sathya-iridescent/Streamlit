@@ -123,14 +123,14 @@ def extract_items(text: str, filename: str) -> List[Dict[str, str]]:
 
         results.append({
             "Filename": filename,
-            "PO #": po,
+            "PO #": str(po),  # Force to String
             "PO Date": po_date,
             "Location": location,
             "Delivery Date": del_date,
-            "EAN NO": m.group(2),
+            "EAN NO": str(m.group(2)),  # Force EAN to String
             "Article Description": desc,
-            "CaseLot": m.group(5),
-            "Quantity": m.group(6)
+            "CaseLot": int(m.group(5)) if m.group(5).isdigit() else 0,
+            "Quantity": int(m.group(6)) if m.group(6).isdigit() else 0
         })
 
     # If nothing matched, add N/A row
@@ -148,3 +148,4 @@ def extract_items(text: str, filename: str) -> List[Dict[str, str]]:
         })
 
     return results
+
