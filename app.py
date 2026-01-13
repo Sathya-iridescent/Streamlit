@@ -92,7 +92,7 @@ with tab1:
             key="main_dashboard_editor"
         )
         
-        if st.button("💾 Save Dashboard Changes"):
+    if st.button("💾 Save Dashboard Changes"):
             # Add your session.commit() logic here to save edited_df back to DB
             st.success("Changes saved successfully!")
     else:
@@ -241,6 +241,7 @@ with tab4:
                 file_name="monthly_summary.csv",
                 mime="text/csv"
             )
+
 
 
 
