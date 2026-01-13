@@ -70,10 +70,11 @@ class POItem(Base):
         Index('idx_po_number_ean', 'po_number', 'ean'),  # For duplicate prevention
     )
 
-    parent_id = Column(Integer, nullable=True)
+    parent_id = Column(String, nullable=True)
     is_manual = Column(Boolean, default=False)
     is_amended = Column(Boolean, default=False)
     child_seq = Column(Integer, default=0)
+    created_at = Column(DateTime, server_default=func.now())
     
     def to_dict(self):
         """Convert to dictionary for JSON serialization"""
@@ -113,6 +114,7 @@ class POItem(Base):
     
     def __repr__(self):
         return f'<POItem {self.po_number}>'
+
 
 
 
