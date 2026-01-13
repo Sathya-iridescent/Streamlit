@@ -42,6 +42,8 @@ else:
 if db_type_for_engine == 'postgresql':
     engine = create_engine(
         DATABASE_URL,
+        # IMPORTANT: Most cloud DBs require SSL to connect from Streamlit
+        connect_args={"sslmode": "require"}, 
         poolclass=QueuePool,
         pool_size=10,
         max_overflow=20,
@@ -152,4 +154,5 @@ if __name__ == "__main__":
     print("  - po_items: id (PRIMARY KEY), ean (FOREIGN KEY -> style_master.ean)")
     print("\n✓ Foreign key relationship established:")
     print("  po_items.ean -> style_master.ean (EAN links the tables)")
+
 
