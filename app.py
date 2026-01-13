@@ -46,25 +46,35 @@ def logout():
 # --- UI CONTROL FLOW ---
 
 if not st.session_state.authenticated:
-    # --- LOGIN SCREEN ---
     st.title("📦 DMart Dashboard")
     
+    # Create the form
     with st.form("login_form"):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
         submit = st.form_submit_button("Login")
         
-        if submit:
-            with get_db_session() as session:
-                user = session.query(User).filter_by(username=username).first()
-                if user and user.check_password(password):
-                    st.session_state.authenticated = True
-                    st.session_state.username = user.username
-                    st.session_state.role = user.role
-                    st.success("Login Successful!")
-                    st.rerun()
-                else:
-                    st.error("Invalid credentials")
+    if submit:
+        # Use your get_db_session helper from database.py
+        with get_db_session() as session:
+            user = session.query(User).filter_by(username=username).first()
+            
+            # Check password hash using the method in your User model
+            if user and user.check_password(password):
+                # SET ALL STATE BEFORE RERUNNING
+                st.session_state.authenticated = True
+                st.session_state.username = user.username
+                st.session_state.role = user.role
+                st.session_state.user_id = user.id
+                
+                # IMPORTANT: Set a default location for your calculations later
+                # We will use this for the -6, -4, -3 day rules
+                st.session_state.location = user.company if user.company else "Unknown"
+                
+                st.success("Login Successful! Redirecting...")
+                st.rerun() # This will now trigger the 'else' block below
+            else:
+                st.error("Invalid credentials")
 else:
     # --- LOGGED IN AREA ---
     st.sidebar.title(f"User: {st.session_state.username}")
@@ -95,6 +105,7 @@ else:
     elif choice == "Style Master":
         st.header("Style Master Management")
         # Logic to view/add styles from your StyleMaster model
+
 
 
 
