@@ -167,8 +167,8 @@ with tab3:
     uploaded_files = st.file_uploader("Select PDF Files", accept_multiple_files=True, type=['pdf'])
     
     if st.button("Process All Files", type="primary") and uploaded_files:
-    processed_count = 0
-    with get_db_session() as session:
+        processed_count = 0
+        with get_db_session() as session:
         for f in uploaded_files:
             try:  # <--- Start of the try block
                 file_bytes = f.getvalue()
@@ -241,6 +241,7 @@ with tab4:
                 file_name="monthly_summary.csv",
                 mime="text/csv"
             )
+
 
 
 
