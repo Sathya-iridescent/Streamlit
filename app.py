@@ -186,14 +186,18 @@ with tab3:
                         # Apply your location-based date rule [cite: 2026-01-11]
                         ex_fty = apply_ex_factory_logic(item.get('Location'), item.get('Delivery Date'))
                         
-                        po_entry = POItem(
-                            po_number=item.get('PO #'),
-                            ean=item.get('EAN NO'),
-                            delivery_date=item.get('Delivery Date'),
-                            ex_factory_date=ex_fty,
-                            location=item.get('Location'),
-                            quantity=item.get('Quantity', 0),
-                            status="Pending"
+                       po_entry = POItem(
+                           po_number=str(item.get('PO #', '')), # Force as string
+                           ean=str(item.get('EAN NO', '')),    # Force as string
+                           delivery_date=item.get('Delivery Date', ''),
+                           ex_factory_date=ex_fty,
+                           location=item.get('Location', ''),
+                           quantity=int(item.get('Quantity', 0)), # Force as integer
+                           status="Pending",
+                           # Default empty strings for optional fields to avoid NULL errors
+                           factory_remarks="",
+                           ocn="",
+                           factory=""
                         )
                         # merge handles updates if the PO # already exists
                         session.merge(po_entry)
@@ -236,6 +240,7 @@ with tab4:
                 file_name="monthly_summary.csv",
                 mime="text/csv"
             )
+
 
 
 
