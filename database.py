@@ -135,6 +135,10 @@ def initialize_db():
     
     # Create all tables (users, po_items, style_master)
     Base.metadata.create_all(bind=engine)
+ except Exception as e:
+        # This will show the actual error message in your app UI
+        st.error(f"Actual Connection Error: {str(e)}")
+        raise e
     
     if DATABASE_URL and not DATABASE_URL.startswith('sqlite'):
         # PostgreSQL (from DATABASE_URL or individual components)
@@ -154,5 +158,6 @@ if __name__ == "__main__":
     print("  - po_items: id (PRIMARY KEY), ean (FOREIGN KEY -> style_master.ean)")
     print("\n✓ Foreign key relationship established:")
     print("  po_items.ean -> style_master.ean (EAN links the tables)")
+
 
 
