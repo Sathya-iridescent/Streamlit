@@ -60,7 +60,7 @@ class POItem(Base):
     grn_status = Column(String)
     
     # Metadata
-    is_revised = Column(Boolean, default=False)
+    is_amended = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
     
     # Composite indexes for performance
@@ -113,6 +113,7 @@ class POItem(Base):
     
     def __repr__(self):
         return f'<POItem {self.po_number}>'
+
 
 
 
