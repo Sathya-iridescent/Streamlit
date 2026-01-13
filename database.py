@@ -3,6 +3,7 @@ Production Database Module - PostgreSQL with SQLAlchemy
 Single database with two tables connected by foreign key (EAN)
 """
 import os
+import streamlit as st
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -16,33 +17,20 @@ load_dotenv()
 Base = declarative_base()
 
 # ==================== CONFIGURATION ====================
-# Load from environment variables (fallback to SQLite for development)
-# Support DATABASE_URL (used by Render, Heroku, etc.) or individual components
-DATABASE_URL = os.getenv('DATABASE_URL')
+# 1. Check Streamlit Secrets (Cloud), then Environment Variables (Local)
+DATABASE_URL = st.secrets.get("DATABASE_URL") or os.getenv('DATABASE_URL')
 
 if DATABASE_URL:
-    # Render/Heroku style: postgres://user:pass@host:port/dbname
-    # SQLAlchemy needs postgresql:// (not postgres://)
+    # Render/Heroku/Supabase fix: SQLAlchemy needs 'postgresql://'
     if DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
     DB_TYPE = 'postgresql'
 else:
-    # Build from individual components
-    DB_TYPE = os.getenv('DB_TYPE', 'sqlite')  # Change to 'postgresql' for production
-    DB_HOST = os.getenv('DB_HOST', 'localhost')
-    DB_PORT = os.getenv('DB_PORT', '5432')
-    DB_NAME = os.getenv('DB_NAME', 'poextract_db')
-    DB_USER = os.getenv('DB_USER', 'postgres')
-    DB_PASSWORD = os.getenv('DB_PASSWORD', '')
-    
-    # Build connection string
-    if DB_TYPE == 'postgresql':
-        DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-    elif DB_TYPE == 'sqlite':
-        # SQLite fallback for development
-        DATABASE_URL = "sqlite:///poextract.db"
-    else:
-        raise ValueError(f"Unsupported DB_TYPE: {DB_TYPE}")
+    # Local fallback to SQLite if no production DB is found
+    DB_TYPE = 'sqlite'
+    DATABASE_URL = "sqlite:///poextract.db"
+    print("⚠️ No DATABASE_URL found. Falling back to local SQLite.")
+
 
 # ==================== ENGINE & SESSION ====================
 # Determine DB_TYPE from DATABASE_URL if not explicitly set
@@ -164,3 +152,4 @@ if __name__ == "__main__":
     print("  - po_items: id (PRIMARY KEY), ean (FOREIGN KEY -> style_master.ean)")
     print("\n✓ Foreign key relationship established:")
     print("  po_items.ean -> style_master.ean (EAN links the tables)")
+
