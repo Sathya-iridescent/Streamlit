@@ -154,40 +154,58 @@ with tab2:
 
 # --- TAB 3: UPLOAD ---
 with tab3:
-    st.header("Upload Multiple PO PDFs")
-    files = st.file_uploader("Select PDF Files", accept_multiple_files=True, type=['pdf'])
+    st.header("📤 Upload Multiple PO PDFs")
     
-    if st.button("Process All Files") and files:
+    st.info("""
+    **Instructions:**
+    - Select one or more PDF files.
+    - Click 'Process All Files' to extract data.
+    - Files will automatically appear in the Dashboard.
+    """)
+    
+    uploaded_files = st.file_uploader("Select PDF Files", accept_multiple_files=True, type=['pdf'])
+    
+    if st.button("Process All Files", type="primary") and uploaded_files:
+        processed_count = 0
         with get_db_session() as session:
-            for f in files:
-                doc = fitz.open(stream=f.read(), filetype="pdf")
-                text = "".join(p.get_text() for p in doc)
-                items = extract_items(text, f.name)
-                
-                for item in items:
-                    # Apply your location rule [cite: 2026-01-11]
-                    ex_fty = apply_ex_factory_logic(item.get('Location'), item.get('Delivery Date'))
+            for f in uploaded_files:
+                try:
+                    # Fix: Use getvalue() to ensure the stream is read correctly
+                    file_bytes = f.getvalue() 
+                    doc = fitz.open(stream=file_bytes, filetype="pdf")
                     
-                    po_entry = POItem(
-                        po_number=item.get('PO #'),
-                        ean=item.get('EAN NO'),
-                        delivery_date=item.get('Delivery Date'),
-                        ex_factory_date=ex_fty,
-                        location=item.get('Location'),
-                        quantity=item.get('Quantity', 0),
-                        status="Pending"
-                    )
-                    # Use merge to handle amended/duplicate POs
-                    session.merge(po_entry)
+                    text = ""
+                    for page in doc:
+                        text += page.get_text()
+                    
+                    # Extract items using your logic
+                    items = extract_items(text, f.name)
+                    
+                    for item in items:
+                        # Apply your location-based date rule [cite: 2026-01-11]
+                        ex_fty = apply_ex_factory_logic(item.get('Location'), item.get('Delivery Date'))
+                        
+                        po_entry = POItem(
+                            po_number=item.get('PO #'),
+                            ean=item.get('EAN NO'),
+                            delivery_date=item.get('Delivery Date'),
+                            ex_factory_date=ex_fty,
+                            location=item.get('Location'),
+                            quantity=item.get('Quantity', 0),
+                            status="Pending"
+                        )
+                        # merge handles updates if the PO # already exists
+                        session.merge(po_entry)
+                    
+                    processed_count += 1
+                except Exception as e:
+                    st.error(f"Error processing {f.name}: {e}")
             
-            # 1. CRITICAL: Ensure changes are saved to the file
-            session.commit() 
+            session.commit()
             
-        st.success(f"Successfully processed {len(files)} files!")
-        
-        # 2. CRITICAL: Force the app to restart from the top 
-        # so the 'Universal Data Loading' section catches the new rows.
-        st.rerun()
+        if processed_count > 0:
+            st.success(f"Successfully processed {processed_count} files!")
+            st.rerun()
 
 # --- TAB 4: MONTHLY SUMMARY ---
 with tab4:
@@ -217,6 +235,7 @@ with tab4:
                 file_name="monthly_summary.csv",
                 mime="text/csv"
             )
+
 
 
 
