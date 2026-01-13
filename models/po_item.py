@@ -18,9 +18,9 @@ class POItem(Base):
     __tablename__ = 'po_items'
     
     # Using STRING for ID to allow long PO numbers (e.g., 5002460652)
-    id = Column(String, primary_key=True)
-    po_number = Column(String)
-    ean = Column(String, ForeignKey('style_master.ean', ondelete='SET NULL'), index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    po_number = Column(String, index=True)
+    ean = Column(String, ForeignKey('style_master.ean'), index=True)
     
     filename = Column(String)
     po_date = Column(String)
@@ -41,3 +41,4 @@ class POItem(Base):
 
     def to_dict(self):
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+
