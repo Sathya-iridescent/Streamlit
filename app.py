@@ -97,7 +97,7 @@ with tab1:
         st.info("No records found. Please upload a PO PDF to begin.")
         if not df.empty:
     # Convert DataFrame to Excel format in memory
-    import io
+        import io
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False, sheet_name='PO_Report')
@@ -216,4 +216,5 @@ with tab4:
                 file_name="monthly_summary.csv",
                 mime="text/csv"
             )
+
 
