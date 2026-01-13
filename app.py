@@ -201,8 +201,8 @@ with tab3:
                           )
                            session.add(po_entry)
                 
-                processed_count += 1
-                doc.close()
+                   processed_count += 1
+                   doc.close()
 
             except Exception as e:  # <--- This MUST be at the same level as the 'try'
                 st.error(f"Error processing {f.name}: {e}")
@@ -241,6 +241,7 @@ with tab4:
                 file_name="monthly_summary.csv",
                 mime="text/csv"
             )
+
 
 
 
