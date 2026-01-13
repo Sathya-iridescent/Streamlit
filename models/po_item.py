@@ -5,7 +5,16 @@ from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, I
 from sqlalchemy.orm import relationship
 from database import Base
 
-
+class StyleMaster(Base):
+    __tablename__ = 'style_master'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ean = Column(String, unique=True, index=True)
+    style_no = Column(String)
+    buyer = Column(String)
+    
+    # Relationship back to PO items
+    po_items = relationship("POItem", back_populates="style_master_ref")
 class POItem(Base):
     """
     Purchase Order Items table
@@ -114,6 +123,7 @@ class POItem(Base):
     
     def __repr__(self):
         return f'<POItem {self.po_number}>'
+
 
 
 
