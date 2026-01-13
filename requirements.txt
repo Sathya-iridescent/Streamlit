@@ -1,0 +1,13 @@
+Flask>=3.0.0
+PyMuPDF>=1.24.0
+pandas>=2.0.0
+xlsxwriter>=3.0.0
+
+# PostgreSQL Support
+psycopg2-binary>=2.9.0
+SQLAlchemy>=2.0.0
+python-dotenv>=1.0.0
+
+# Production Server
+waitress>=2.1.0
+
