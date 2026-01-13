@@ -205,7 +205,7 @@ with tab3:
                    doc.close()
 
                 except Exception as e:  # <--- This MUST be at the same level as the 'try'
-                st.error(f"Error processing {f.name}: {e}")
+                    st.error(f"Error processing {f.name}: {e}")
 
         session.commit() # Save everything to the database
         
@@ -241,6 +241,7 @@ with tab4:
                 file_name="monthly_summary.csv",
                 mime="text/csv"
             )
+
 
 
 
