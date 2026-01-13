@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+
+{% block title %}User Management - Admin - PO Extract{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+        color: #333;
+        margin-bottom: 10px;
+    }
+    .admin-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 2px solid #667eea;
+    }
+    .stats {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    .stat-card {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        flex: 1;
+        text-align: center;
+    }
+    .stat-card h3 {
+        margin: 0;
+        color: #667eea;
+        font-size: 32px;
+    }
+    .stat-card p {
+        margin: 5px 0 0 0;
+        color: #666;
+        font-size: 14px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        background: white;
+    }
+    th, td {
+        border: 1px solid #ddd;
+        padding: 12px;
+        text-align: left;
+        font-size: 14px;
+    }
+    th {
+        background: #667eea;
+        color: white;
+        font-weight: 600;
+    }
+    tr:nth-child(even) {
+        background: #f8f9fa;
+    }
+    tr:hover {
+        background: #e9ecef;
+    }
+    .badge {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .badge-admin {
+        background: #667eea;
+        color: white;
+    }
+    .badge-user {
+        background: #6c757d;
+        color: white;
+    }
+    .badge-active {
+        background: #28a745;
+        color: white;
+    }
+    .badge-inactive {
+        background: #dc3545;
+        color: white;
+    }
+    .badge-verified {
+        background: #17a2b8;
+        color: white;
+    }
+    .badge-unverified {
+        background: #ffc107;
+        color: #333;
+    }
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+    }
+    .btn-action {
+        padding: 5px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+    .btn-toggle-active {
+        background: #ffc107;
+        color: #333;
+    }
+    .btn-toggle-active:hover {
+        background: #e0a800;
+    }
+    .btn-change-role {
+        background: #17a2b8;
+        color: white;
+    }
+    .btn-change-role:hover {
+        background: #138496;
+    }
+    .btn-toggle-verified {
+        background: #28a745;
+        color: white;
+    }
+    .btn-toggle-verified:hover {
+        background: #218838;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: #666;
+    }
+    .role-select {
+        padding: 4px 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="admin-header">
+        <h1>User Management</h1>
+        <div>
+            <span class="badge badge-admin">Admin Panel</span>
+        </div>
+    </div>
+    
+    <div class="stats">
+        <div class="stat-card">
+            <h3>{{ users|length }}</h3>
+            <p>Total Users</p>
+        </div>
+        <div class="stat-card">
+            <h3>{{ users|selectattr('role', 'equalto', 'admin')|list|length }}</h3>
+            <p>Admins</p>
+        </div>
+        <div class="stat-card">
+            <h3>{{ users|selectattr('is_active', 'equalto', True)|list|length }}</h3>
+            <p>Active Users</p>
+        </div>
+        <div class="stat-card">
+            <h3>{{ users|selectattr('is_verified', 'equalto', True)|list|length }}</h3>
+            <p>Verified Users</p>
+        </div>
+    </div>
+    
+    {% if users %}
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Full Name</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Verified</th>
+                <th>Created</th>
+                <th>Last Login</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.id }}</td>
+                <td><strong>{{ user.username }}</strong></td>
+                <td>{{ user.email }}</td>
+                <td>{{ user.full_name or '-' }}</td>
+                <td>
+                    <span class="badge {% if user.role == 'admin' %}badge-admin{% else %}badge-user{% endif %}">
+                        {{ user.role|upper }}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge {% if user.is_active %}badge-active{% else %}badge-inactive{% endif %}" id="status-{{ user.id }}">
+                        {% if user.is_active %}Active{% else %}Inactive{% endif %}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge {% if user.is_verified %}badge-verified{% else %}badge-unverified{% endif %}" id="verified-{{ user.id }}">
+                        {% if user.is_verified %}Verified{% else %}Unverified{% endif %}
+                    </span>
+                </td>
+                <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '-' }}</td>
+                <td>{{ user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else 'Never' }}</td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn-action btn-toggle-active" 
+                                onclick="toggleActive({{ user.id }})"
+                                {% if user.id == session.user_id %}disabled title="Cannot modify your own account"{% endif %}>
+                            {% if user.is_active %}Deactivate{% else %}Activate{% endif %}
+                        </button>
+                        <button class="btn-action btn-toggle-verified" 
+                                onclick="toggleVerified({{ user.id }})"
+                                title="{% if user.is_verified %}Unverify user{% else %}Verify user{% endif %}">
+                            {% if user.is_verified %}Unverify{% else %}Verify{% endif %}
+                        </button>
+                        <select class="role-select" 
+                                onchange="changeRole({{ user.id }}, this.value)"
+                                {% if user.id == session.user_id %}disabled title="Cannot change your own role"{% endif %}>
+                            <option value="user" {% if user.role == 'user' %}selected{% endif %}>User</option>
+                            <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+                        </select>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>No users found.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleActive(userId) {
+        if (!confirm('Are you sure you want to change this user\'s active status?')) {
+            return;
+        }
+        
+        fetch(`{{ url_for('auth.toggle_user_active', user_id=0) }}`.replace('0', userId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the status badge
+                const statusBadge = document.getElementById(`status-${userId}`);
+                const button = event.target;
+                
+                if (data.is_active) {
+                    statusBadge.textContent = 'Active';
+                    statusBadge.className = 'badge badge-active';
+                    button.textContent = 'Deactivate';
+                } else {
+                    statusBadge.textContent = 'Inactive';
+                    statusBadge.className = 'badge badge-inactive';
+                    button.textContent = 'Activate';
+                }
+                
+                alert(data.message);
+            } else {
+                alert('Error: ' + (data.error || 'Failed to update user status'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error updating user status');
+        });
+    }
+    
+    function changeRole(userId, newRole) {
+        if (!confirm(`Are you sure you want to change this user's role to ${newRole}?`)) {
+            // Reset select to original value
+            location.reload();
+            return;
+        }
+        
+        fetch(`{{ url_for('auth.change_user_role', user_id=0) }}`.replace('0', userId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ role: newRole }),
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                // Reload to update role badge
+                location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'Failed to change user role'));
+                location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error changing user role');
+            location.reload();
+        });
+    }
+    
+    function toggleVerified(userId) {
+        const button = event.target;
+        const currentText = button.textContent;
+        const action = currentText === 'Verify' ? 'verify' : 'unverify';
+        
+        if (!confirm(`Are you sure you want to ${action} this user?`)) {
+            return;
+        }
+        
+        fetch(`{{ url_for('auth.toggle_user_verified', user_id=0) }}`.replace('0', userId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the verified badge
+                const verifiedBadge = document.getElementById(`verified-${userId}`);
+                
+                if (data.is_verified) {
+                    verifiedBadge.textContent = 'Verified';
+                    verifiedBadge.className = 'badge badge-verified';
+                    button.textContent = 'Unverify';
+                    button.title = 'Unverify user';
+                } else {
+                    verifiedBadge.textContent = 'Unverified';
+                    verifiedBadge.className = 'badge badge-unverified';
+                    button.textContent = 'Verify';
+                    button.title = 'Verify user';
+                }
+                
+                alert(data.message);
+            } else {
+                alert('Error: ' + (data.error || 'Failed to update verification status'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error updating verification status');
+        });
+    }
+</script>
+{% endblock %}
+
+

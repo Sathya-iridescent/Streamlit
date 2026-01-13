@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}Style Master - PO Extract{% endblock %}
+
+{% block extra_css %}
+<style>
+    .style-master-container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+        color: #333;
+        margin-bottom: 20px;
+    }
+    .add-style-form {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 5px;
+        margin-bottom: 30px;
+    }
+    .form-row {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+    }
+    .form-group {
+        flex: 1;
+        min-width: 200px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        color: #333;
+        font-weight: 500;
+    }
+    .form-group input,
+    .form-group select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 14px;
+    }
+    .btn-add {
+        padding: 10px 20px;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+    }
+    .btn-add:hover {
+        background: #5568d3;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        background: white;
+    }
+    th, td {
+        border: 1px solid #ddd;
+        padding: 12px;
+        text-align: left;
+        font-size: 14px;
+    }
+    th {
+        background: #0074D9;
+        color: white;
+        font-weight: 600;
+    }
+    tr:nth-child(even) {
+        background: #f8f9fa;
+    }
+    tr:hover {
+        background: #e9ecef;
+    }
+    .btn-delete {
+        padding: 5px 15px;
+        background: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 12px;
+    }
+    .btn-delete:hover {
+        background: #c82333;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: #666;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="style-master-container">
+    <h1>Style Master</h1>
+    
+    <div class="add-style-form">
+        <h3>Add New EAN + Style + Buyer</h3>
+        <form action="{{ url_for('style_master.save_style') }}" method="POST">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="ean">Enter EAN</label>
+                    <input type="text" id="ean" name="ean" required>
+                </div>
+                <div class="form-group">
+                    <label for="style_no">Enter Style</label>
+                    <input type="text" id="style_no" name="style_no">
+                </div>
+                <div class="form-group">
+                    <label for="buyer">Select Buyer</label>
+                    <select id="buyer" name="buyer">
+                        <option value="">-- Select Buyer --</option>
+                        {% for buyer in buyers %}
+                        <option value="{{ buyer }}">{{ buyer }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="display: flex; align-items: flex-end;">
+                    <button type="submit" class="btn-add">Add</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <h3>Existing Records</h3>
+    {% if styles %}
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>EAN</th>
+                <th>Style No</th>
+                <th>Buyer</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for style in styles %}
+            <tr>
+                <td>{{ style.id }}</td>
+                <td>{{ style.ean }}</td>
+                <td>{{ style.style_no or '' }}</td>
+                <td>{{ style.buyer or '' }}</td>
+                <td>
+                    <a href="{{ url_for('style_master.delete_style', id=style.id) }}" 
+                       class="btn-delete" 
+                       onclick="return confirm('Are you sure you want to delete this style?')">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>No style master records found. Add your first EAN above.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

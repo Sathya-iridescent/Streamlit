@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - PO Extract{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        max-width: 800px;
+    }
+    h1 {
+        color: #333;
+        margin-bottom: 20px;
+    }
+    .info-section {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 5px;
+        margin-bottom: 30px;
+    }
+    .info-section p {
+        margin: 10px 0;
+        color: #666;
+    }
+    .info-section strong {
+        color: #333;
+    }
+    .profile-section h2 {
+        color: #667eea;
+        margin-bottom: 15px;
+        font-size: 20px;
+    }
+    .form-group {
+        margin-bottom: 20px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        color: #333;
+        font-weight: 500;
+    }
+    .form-group input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 14px;
+    }
+    .btn-update {
+        padding: 10px 20px;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+    }
+    .btn-update:hover {
+        background: #5568d3;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <h1>User Profile</h1>
+    
+    <div class="info-section">
+        <p><strong>Username:</strong> {{ user.username }}</p>
+        <p><strong>Role:</strong> 
+            <span style="padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; 
+                         {% if user.role == 'admin' %}background: #667eea; color: white;{% else %}background: #6c757d; color: white;{% endif %}">
+                {{ user.role|upper }}
+            </span>
+        </p>
+        <p><strong>Account Created:</strong> {{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else 'N/A' }}</p>
+        {% if user.last_login %}
+        <p><strong>Last Login:</strong> {{ user.last_login.strftime('%Y-%m-%d %H:%M') }}</p>
+        {% endif %}
+        {% if user.role == 'admin' %}
+        <p style="margin-top: 15px;">
+            <a href="{{ url_for('auth.admin_users') }}" style="padding: 8px 16px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; font-weight: 600;">
+                Manage Users →
+            </a>
+        </p>
+        {% endif %}
+    </div>
+    
+    <div class="profile-section">
+        <h2>Profile Information</h2>
+        <form id="profileForm">
+            <div class="form-group">
+                <label for="full_name">Full Name</label>
+                <input type="text" id="full_name" name="full_name" value="{{ user.full_name or '' }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" value="{{ user.email }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="phone">Phone</label>
+                <input type="text" id="phone" name="phone" value="{{ user.phone or '' }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="company">Company</label>
+                <input type="text" id="company" name="company" value="{{ user.company or '' }}">
+            </div>
+            
+            <button type="submit" class="btn-update">Update Profile</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('profileForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        
+        try {
+            const response = await fetch('{{ url_for("auth.update_profile") }}', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('Profile updated successfully!');
+                location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'Failed to update profile'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    });
+</script>
+{% endblock %}

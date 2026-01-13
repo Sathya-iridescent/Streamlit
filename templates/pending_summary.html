@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .report-container { padding: 20px; background: white; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background: #0074D9; color: white; position: sticky; top: 0; }
+    .filter-row { background: #f4f4f4; }
+    .filter-row input { width: 90%; padding: 3px; font-size: 11px; }
+    .total-col { background: #3498db; font-weight: bold; }
+    .style-info { text-align: left; background: #f9f9f9; }
+
+@media print {
+    /* Hide navigation, buttons, and search filters on the PDF */
+    .no-print, .filter-row, nav, .sidebar, button, footer {
+        display: none !important;
+    }
+
+    body {
+        background: white !important;
+        padding: 0;
+    }
+
+    .report-container {
+        padding: 0;
+        width: 100%;
+    }
+
+    table {
+        width: 100% !important;
+        border: 1px solid #000;
+    }
+
+    th {
+        background-color: #eee !important;
+        color: black !important;
+    }
+}
+</style>
+
+<div class="report-container">
+    <h1>Pending Summary By Month</h1>
+    
+    <table id="summaryTable">
+        <thead>
+            <tr>
+                <th>Buyer</th>
+                <th>Style</th>
+                <th>Description</th>
+                {% for month in months %}
+                <th>{{ month }}</th>
+                {% endfor %}
+                <th class="total-col">Grand Total</th>
+            </tr>
+            <tr class="filter-row">
+                <td><input type="text" placeholder="Search..." onkeyup="filterSummary(0, this.value)"></td>
+                <td><input type="text" placeholder="Search..." onkeyup="filterSummary(1, this.value)"></td>
+                <td><input type="text" placeholder="Search..." onkeyup="filterSummary(2, this.value)"></td>
+                <td colspan="{{ months|length + 1 }}"></td>
+            </tr>
+        </thead>
+       <tbody>
+            {% for style, monthly_values in style_summary.items() %}
+            <tr>
+                <td class="style-info">{{ style_details[style].buyer }}</td>
+                <td class="style-info"><b>{{ style }}</b></td>
+                <td class="style-info">{{ style_details[style].description }}</td>
+                
+                {% for month in months %}
+                    {% set qty = monthly_values.get(month, 0) %}
+                    <td>{{ "{:,}".format(qty) if qty > 0 else '-' }}</td>
+                {% endfor %}
+                
+                <td class="total-col">
+                    {{ "{:,}".format(monthly_values.values()|sum) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+<div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;" class="no-print">
+    <p style="color: #666;">* Use the search filters to narrow down the list before printing.</p>
+    <button onclick="window.print()" style="background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px;">
+        File PDF / Print Report
+    </button>
+</div>
+
+    </table>
+</div>
+
+<script>
+function filterSummary(colIdx, query) {
+    const table = document.getElementById("summaryTable");
+    const rows = table.getElementsByTagName("tbody")[0].getElementsByTagName("tr");
+    query = query.toLowerCase();
+
+    for (let row of rows) {
+        const cell = row.getElementsByTagName("td")[colIdx];
+        if (cell) {
+            const text = cell.textContent || cell.innerText;
+            row.style.display = text.toLowerCase().includes(query) ? "" : "none";
+        }
+    }
+}
+</script>
+{% endblock %}

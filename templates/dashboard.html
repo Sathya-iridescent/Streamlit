@@ -1,0 +1,601 @@
+{% extends "base.html" %}
+
+{% block title %}PO Dashboard - PO Extract{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ==================== DASHBOARD STYLES ==================== */
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #E9F4FF;
+    }
+
+    .dashboard-content h1 { margin-bottom: 10px; }
+
+    .table-container {
+        overflow-x: auto;
+        white-space: nowrap;
+        margin-top: 15px;
+        max-height: 80vh; 
+    }
+
+    table {
+        border-collapse: collapse;
+        width: max-content;
+        background: white;
+    }
+
+    /* HEADER (frozen top) */
+    thead th {
+        background: #0074D9;
+        color: white;
+        padding: 5px;
+        text-align: center;
+        border: 1px solid #ccc;
+        font-size: 13px;
+        position: sticky;
+        top: 0;
+        z-index: 30;
+        white-space: nowrap;
+    }
+
+    thead input[data-filter-column] {
+        width: 95%;
+        padding: 2px 4px;
+        margin-top: 4px;
+        font-size: 11px;
+        color: #333;
+        background-color: white;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        box-sizing: border-box;
+        height: 22px;
+    }
+
+    .header-label {
+        display: block;
+        font-weight: bold;
+    }
+
+    tbody td {
+        padding: 1px 4px;
+        border: 1px solid #ccc;
+        text-align: center;
+        font-size: 13px;
+        vertical-align: middle;
+        background: white;
+        height: 24px; /* Explicitly set a small height */
+        line-height: 1; /* Prevents text from pushing the height up */
+    }
+
+    tbody td input, 
+tbody td select {
+    height: 20px !important; 
+    margin: 0 !important;
+    padding: 0 2px !important;
+    font-size: 11px !important;
+}
+
+/* Textareas are usually the main reason for high rows */
+tbody td textarea {
+    height: 20px !important; /* Forces it to be the same height as a single row */
+    min-height: 20px;
+    resize: none; /* Prevents user from stretching row height manually */
+}
+
+    /* Column widths */
+    .w-action { width: 80px; } /* New Action column width */
+    .w-id     { width: 40px; }
+    .w-ocn    { width: 70px; }
+    .w-buyer  { width: 140px; }
+    .w-small  { width: 70px; }
+    .w-medium { width: 100px; }
+    .w-normal { width: 120px; }
+    .w-large  { width: 240px; }
+    
+    /* Row Highlighting */
+    .due-soon td { background-color: #FFF3B0 !important; }
+    .overdue td { background-color: #FA002F !important; color: white !important; }
+    tr.status-dispatched td { background-color: #D3D3D3 !important; color: #333 !important; }
+    tr.status-cancelled td { background-color: #ffffff !important; color: #999 !important; }
+
+    /* Freeze Columns */
+    .freeze-col { position: sticky; left: 0; z-index: 20; background: white; }
+    thead th.freeze-col { z-index: 40; background: #0074D9; }
+
+    /* Adjusted freeze positions to accommodate the new Action column */
+    .freeze-action { left: 0px; }
+    .freeze-1 { left: 80px; }
+    .freeze-2 { left: 120px; }
+    .freeze-3 { left: 260px; }
+    .freeze-4 { left: 360px; }
+    .freeze-5 { left: 460px; }
+    .freeze-6 { left: 580px; }
+
+    /* Input/Select styling */
+    tbody input, tbody select, tbody textarea {
+        width: 95%;
+        box-sizing: border-box;
+        border: 1px solid #ccc;
+        border-radius: 2px;
+    }
+    textarea { height: 35px; resize: vertical; }
+
+    .btn-split {
+        background: #0074D9;
+        color: white;
+        border: none;
+        padding: 4px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: bold;
+    }
+    .btn-split:hover { background: #0056b3; }
+
+/* Color for rows you added manually */
+tr.is-manual-row td { 
+    background-color: #D1EAFF; /* Light Blue */
+}
+
+/* 1. This forces Orange to show even if the PO is 'overdue' (red) */
+tr.is-amended-row td {
+    background-color: #FF8300 !important; 
+    color: white;
+   }
+
+/* 2. This makes sure the input boxes show up clearly in the orange row */
+tr.is-amended-row input {
+    background-color: white !important;
+    border: 1px solid #FF8300 !important;
+    color: black !important;
+    padding: 2px;
+    border-radius: 4px;
+}
+
+/* 3. Ensure Overdue (Red) ALWAYS wins regardless of row type */
+tr.overdue td {
+    background-color: #FA002F !important;
+    color: white !important;
+}
+
+/* 4. Ensure Due-Soon (Yellow) ALWAYS wins */
+tr.due-soon td {
+    background-color: #FFF3B0 !important;
+    color: black !important;
+}
+
+/* Ensure inputs in these rows are visible */
+.manual-edit-input {
+    background: white !important;
+    border: 1px solid #0074D9 !important;
+}
+
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const UPDATE_URL = "{{ url_for('dashboard.update_field') }}";
+const debounceTimers = {};
+
+// 1. THE MATH ENGINE (Updates your dashboard boxes)
+function filterTable() {
+    const rows = document.querySelectorAll("tbody tr");
+    const filterInputs = document.querySelectorAll('thead input[data-filter-column]');
+    const filters = {};
+
+    filterInputs.forEach(input => {
+        if (input.value.trim() !== "") {
+            filters[input.dataset.columnIndex] = input.value.toLowerCase();
+        }
+    });
+
+    let visiblePOCount = 0;
+    let visibleQtySum = 0;
+    let ocnCount = 0;
+    let ocnQtySum = 0;
+
+    rows.forEach(row => {
+        let shouldShow = true;
+        const cells = row.querySelectorAll("td");
+
+        for (let colIndex in filters) {
+            const cell = cells[colIndex];
+            if (!cell) continue; 
+            const filterText = filters[colIndex];
+            const interactiveEl = cell.querySelector("input, select, textarea");
+            const cellValue = (interactiveEl ? interactiveEl.value : cell.textContent).trim().toLowerCase();
+
+            if (!cellValue.includes(filterText)) {
+                shouldShow = false;
+                break;
+            }
+        }
+
+        if (shouldShow) {
+            row.style.display = "";
+            visiblePOCount++;
+            
+            // Quantity is Column 13
+            const qtyInput = cells[13]?.querySelector('input');
+            const currentQty = parseFloat(qtyInput?.value.replace(/,/g, '') || cells[13]?.textContent.replace(/,/g, '') || "0") || 0;
+            visibleQtySum += currentQty;
+
+            // OCN is Column 6
+            const ocnInput = cells[6]?.querySelector('input');
+            const ocnValue = ocnInput ? ocnInput.value.trim() : cells[6]?.textContent.trim();
+            if (ocnValue && ocnValue !== "") {
+                ocnCount++;
+                ocnQtySum += currentQty;
+            }
+        } else {
+            row.style.display = "none";
+        }
+    });
+
+    if (document.getElementById('total-po-count')) document.getElementById('total-po-count').textContent = visiblePOCount.toLocaleString();
+    if (document.getElementById('total-qty-sum')) document.getElementById('total-qty-sum').textContent = Math.round(visibleQtySum).toLocaleString();
+    if (document.getElementById('ocn-count')) document.getElementById('ocn-count').textContent = ocnCount.toLocaleString();
+    if (document.getElementById('ocn-qty')) document.getElementById('ocn-qty').textContent = Math.round(ocnQtySum).toLocaleString();
+}
+
+// 2. THE ADD ROW ENGINE
+function addManualRow(id, btnElement) {
+    if(!confirm("Add a manual row for this PO?")) return;
+    
+    fetch('/add-manual-row/' + id, { method: "POST" })
+    .then(res => res.json())
+    .then(data => {
+        if (data.ok) {
+            // Instead of cloning and guessing the ID, just reload the page 
+            // to show the correct database-generated decimal ID.
+            window.location.reload(); 
+        } else {
+            alert("Error: " + data.error);
+        }
+    });
+}
+
+// 3. THE SAVING ENGINE
+function triggerUpdate(el, immediate = false) {
+    const id = el.getAttribute('data-id');
+    const field = el.getAttribute('data-field');
+    const value = el.value;
+    if (!id || !field) return;
+
+    if (immediate) {
+        saveToServer(id, field, value, el);
+    } else {
+        const timerKey = `${id}_${field}`;
+        if (debounceTimers[timerKey]) clearTimeout(debounceTimers[timerKey]);
+        el.style.outline = '2px solid orange';
+        debounceTimers[timerKey] = setTimeout(() => {
+            saveToServer(id, field, value, el);
+            delete debounceTimers[timerKey];
+        }, 1000);
+    }
+}
+function saveToServer(id, field, value, element) {
+    console.log("Saving:", field, "Value:", value, "ID:", id); // Check this in F12 console
+    fetch(UPDATE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ row_id: id, field: field, value: value }),
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (!data.ok) return;
+
+        // ✅ Visual feedback
+        element.style.outline = '2px solid green';
+        setTimeout(() => element.style.outline = 'none', 1000);
+
+        const row = element.closest('tr');
+
+        // 1. DISPATCHED QTY
+        if (data.dispatched_qty !== undefined) {
+            const dispQtyEl = row.querySelector('[data-field="dispatched_qty"]');
+            if (dispQtyEl) dispQtyEl.value = data.dispatched_qty;
+        }
+
+        // 2. BALANCE
+        if (data.balance !== undefined) {
+            const balEl = row.querySelector('[data-field="balance"]');
+            if (balEl) {
+                if (balEl.tagName === 'INPUT') balEl.value = data.balance;
+                else balEl.textContent = data.balance;
+            }
+        }
+
+        // 3. NO OF BOXES
+        if (data.new_boxes !== undefined) {
+            const boxEl = row.querySelector('[data-field="no_of_boxes"]');
+            if (boxEl) {
+                if (boxEl.tagName === 'INPUT') boxEl.value = data.new_boxes;
+                else boxEl.textContent = data.new_boxes;
+            }
+        }
+
+        // 4. GRN STATUS (Updated to handle the new text cell)
+        if (data.new_grn_status) {
+            const grnStatusCell = row.querySelector('.grn-status-cell');
+            if (grnStatusCell) {
+                grnStatusCell.textContent = data.new_grn_status;
+                // Make "Cleared" green and "Pending" orange
+                grnStatusCell.style.color = (data.new_grn_status === 'Cleared') ? 'green' : 'orange';
+            }
+        }
+
+        // 5. DELIVERY MONTH
+        if (data.new_month) {
+            const monthCell = row.querySelector('.delivery-month-cell');
+            if (monthCell) monthCell.textContent = data.new_month;
+            // Fallback to index if class is missing
+            else if (row.cells[8]) row.cells[8].textContent = data.new_month;
+        }
+
+        // 6. EX-FACTORY DATE
+        if (data.new_ex_factory) {
+            const exFactCell = row.querySelector('.ex-factory-cell');
+            if (exFactCell) exFactCell.textContent = data.new_ex_factory;
+            // Fallback to index if class is missing
+            else if (row.cells[16]) row.cells[16].textContent = data.new_ex_factory;
+        }
+
+        // 8. STATUS UPDATE (Force reload to move row to bottom)
+        if (field === 'status') {
+            console.log("Status updated, reloading page...");
+            location.reload(); 
+        }
+
+        // 9. FACTORY REMARKS (Visual confirmation)
+        if (field === 'factory_remarks') {
+            console.log("Remarks saved successfully");
+            // No reload needed for remarks, just the green outline you already have
+        }
+
+        // 7. REFRESH TOTALS
+        filterTable();
+    })
+    .catch(err => console.error("Error:", err));
+}
+
+
+// 4. THE EVENT LISTENER ENGINE (The brain that connects everything)
+document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll('thead input[data-filter-column]').forEach(input => {
+        input.addEventListener('input', filterTable);
+    });
+
+    const tableBody = document.querySelector('tbody');
+    if (tableBody) {
+        tableBody.addEventListener('input', (e) => {
+            if (e.target.hasAttribute('data-id')) triggerUpdate(e.target);
+            if (e.target.dataset.field === 'quantity' || e.target.dataset.field === 'ocn') {
+                filterTable();
+            }
+        });
+
+        tableBody.addEventListener('change', (e) => {
+            if (e.target.tagName === 'SELECT' || e.target.type === 'date') {
+                triggerUpdate(e.target, true);
+            }
+        });
+    }
+    filterTable(); // Run math on load
+});
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-content">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 20px;">
+        <h1>PO Dashboard</h1>
+        {% if current_user.role == 'admin' %}
+        <form method="POST" action="/admin/clear-po" onsubmit="return confirm('Delete ALL data?');">
+            <button style="background:red;color:white;padding:6px 12px;border:none;cursor:pointer;border-radius:4px;">Clear PO Data</button>
+        </form>
+        {% endif %}
+    </div>
+    
+    <div style="margin: 15px 0; display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+        <a href="{{ url_for('dashboard.pending_summary') }}" 
+   style="background-color: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+   📊 View Monthly Pending Summary
+        </a>
+        
+        <a href="{{ url_for('po.download_excel') }}" style="color:#0074D9; font-weight: bold; text-decoration: none;">⬇ Download Excel</a>
+        <a href="{{ url_for('style_master.refresh_styles') }}" style="color:#28a745; font-weight: bold; text-decoration: none;">🔄 Refresh Style/Buyer</a>
+    </div>
+    
+     <div id="summary-bar" style="background: white; padding: 6px 15px; margin-bottom: 12px; border: 1px solid #0074D9; display: inline-flex; gap: 20px; align-items: center; border-radius: 6px; box-shadow: 2px 2px 5px rgba(0,0,0,0.05);">
+    <div style="font-size: 14px;">
+        <strong style="color: #0074D9;">Total POs:</strong> 
+        <span id="total-po-count" style="font-weight: bold; margin-left: 5px;">0</span>
+    </div>
+    
+
+    <div style="height: 15px; border-left: 1px solid #ccc;"></div> <div style="font-size: 14px;">
+        <strong style="color: #28a745;">Total Qty:</strong> 
+        <span id="total-qty-sum" style="font-weight: bold; margin-left: 5px;">0</span>
+    </div>
+        <div id="ocn-summary-container" style="background: white; padding: 6px 15px; border: 1px solid #FF851B; display: inline-flex; gap: 20px; align-items: center; border-radius: 6px;">
+        <strong style="color: #FF851B;">OCN Count:</strong> 
+        <span id="ocn-count" style="font-weight: bold; margin-left: 5px;">0</span>
+        
+        <strong style="color: #FF851B; margin-left: 15px;">OCN Qty:</strong> 
+        <span id="ocn-qty" style="font-weight: bold; margin-left: 5px;">0</span>
+    </div>
+    
+   
+</div>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show" role="alert">
+        <strong>Notice:</strong> {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th class="w-action freeze-col freeze-action"><span class="header-label">Action</span></th>
+                    <th class="w-id freeze-col freeze-1"><span class="header-label">ID</span><input type="text" data-filter-column data-column-index="1" placeholder="S..."></th>
+                    <th class="w-buyer freeze-col freeze-2"><span class="header-label">Buyer</span><input type="text" data-filter-column data-column-index="2" placeholder="Search..."></th>
+                    <th class="w-medium freeze-col freeze-3"><span class="header-label">PO #</span><input type="text" data-filter-column data-column-index="3" placeholder="Search..."></th>
+                    <th class="w-medium freeze-col freeze-4"><span class="header-label">PO Date</span><input type="text" data-filter-column data-column-index="4" placeholder="Search..."></th>
+                    <th class="w-normal freeze-col freeze-5"><span class="header-label">Style</span><input type="text" data-filter-column data-column-index="5" placeholder="Search..."></th>
+                    <th class="w-ocn freeze-col freeze-6"><span class="header-label">OCN</span><input type="text" data-filter-column data-column-index="6" placeholder="Search..."></th>
+                    <th class="w-medium"><span class="header-label">Del. Date</span><input type="text" data-filter-column data-column-index="7" placeholder="Search..."></th>
+                    <th class="w-medium"><span class="header-label">Del. Month</span><input type="text" data-filter-column data-column-index="8" placeholder="Search..."></th>
+                    <th class="w-medium"><span class="header-label">Location</span><input type="text" data-filter-column data-column-index="9" placeholder="Search..."></th>
+                    <th class="w-medium"><span class="header-label">EAN</span><input type="text" data-filter-column data-column-index="10" placeholder="Search..."></th>
+                    <th class="w-large"><span class="header-label">Description</span><input type="text" data-filter-column data-column-index="11" placeholder="Search..."></th>
+                    <th class="w-small"><span class="header-label">CaseLot</span><input type="text" data-filter-column data-column-index="12" placeholder="Search..."></th>
+                    <th class="w-small"><span class="header-label">Qty</span><input type="text" data-filter-column data-column-index="13" placeholder="Search..."></th>
+                    <th class="w-small"><span class="header-label">Boxes</span><input type="text" data-filter-column data-column-index="14" placeholder="Search..."></th>
+                    <th class="w-small"><span class="header-label">Factory</span><input type="text" data-filter-column data-column-index="15" placeholder="Search..."></th>
+                    <th class="w-medium"><span class="header-label">Ex-Fact. Date</span><input type="text" data-filter-column data-column-index="16" placeholder="Search..."></th>
+                    <th class="w-large"><span class="header-label">Remarks</span><input type="text" data-filter-column data-column-index="17" placeholder="Search..."></th>
+                    <th class="w-small"><span class="header-label">Disp. Box</span><input type="text" data-filter-column data-column-index="18" placeholder="Search..."></th>
+                    <th class="w-small"><span class="header-label">Disp. Qty</span><input type="text" data-filter-column data-column-index="19" placeholder="Search..."></th>
+                    <th class="w-small"><span class="header-label">Balance</span><input type="text" data-filter-column data-column-index="20" placeholder="Search..."></th>
+                    <th class="w-medium"><span class="header-label">Status</span><input type="text" data-filter-column data-column-index="21" placeholder="Search..."></th>
+                    <th class="w-medium"><span class="header-label">Disp. Date</span><input type="text" data-filter-column data-column-index="22" placeholder="Search..."></th>
+                    <th class="w-medium"><span class="header-label">Transporter</span><input type="text" data-filter-column data-column-index="23" placeholder="Search..."></th>
+                    <th class="w-medium"><span class="header-label">GRN Date</span><input type="text" data-filter-column data-column-index="24" placeholder="Search..."></th>
+                    <th class="w-medium"><span class="header-label">GRN Status</span><input type="text" data-filter-column data-column-index="25" placeholder="Search..."></th>
+                </tr>
+            </thead>
+            <tbody>
+            <tbody id="poTableBody">
+                {% for r in data %}
+                    <tr class="{% if r.quantity == 0 %}new-split-row{% endif %} 
+                {% if r.status == 'Pending' %}
+                    {% if r.exfactory_flag == 'overdue' %}overdue{% elif r.exfactory_flag == 'due-soon' %}due-soon{% endif %}
+                {% endif %} 
+           {% if r.status == 'Dispatched' %}status-dispatched{% endif %}
+           {% if r.status == 'Cancelled' %}status-normal{% endif %}
+           {% if r.is_manual %}is-manual-row{% endif %}
+           {% if r.is_amended %}is-amended-row{% endif %}">
+                    <td class="w-action freeze-col freeze-action">
+    {% if r.is_manual %}
+        <span style="color: #0074D9; font-weight: bold;">✓ Manual</span>
+    {% elif r.is_amended %}
+        <span style="color: #856404; font-weight: bold;">⚠ Revised</span>
+    {% else %}
+        <button class="btn-split" onclick="addManualRow('{{ r.id }}', this)">➕ Add Row</button>
+    {% endif %}
+                    </td>
+                    <td class="w-id freeze-col freeze-1">
+                       {% if r.parent_id %}
+                           {# Permanent ID: ParentID.RowID #}
+                           {{ r.parent_id }}.{{ r.child_seq }}
+                       {% else %}
+                           {{ r.id }}
+                       {% endif %}
+                     </td>
+                    <td class="w-buyer freeze-col freeze-2">{{ r.buyer }}</td>
+                    <td class="w-medium freeze-col freeze-3">{{ r.po_number }}</td>
+                    <td class="w-medium freeze-col freeze-4">
+    {% if r.po_date == "None" or not r.po_date %}
+        <input type="text" class="date-picker-input" data-id="{{r.id}}" data-field="po_date" placeholder="DD.MM.YYYY" oninput="triggerUpdate(this)">
+    {% else %}
+        {{ r.po_date }}
+    {% endif %}
+                    </td>
+
+                    <td class="w-normal freeze-col freeze-5">{{ r.style_no }}</td>
+                    <td class="w-ocn freeze-col freeze-6">
+                        <input value="{{ r.ocn }}" oninput="filterTable()" onblur="saveToServer('{{r.id}}', 'ocn', this.value, this)">
+                    </td>
+                    <td class="w-medium">
+    {% if r.is_manual or r.is_amended %}
+                    <input type="date" 
+               value="{{ r.delivery_date_iso if r.delivery_date_iso else '' }}"
+               data-id="{{ r.id }}" 
+               data-field="delivery_date" 
+               onchange="triggerUpdate(this, true)">
+    {% else %}
+        <span class="delivery-date-display">{{ r.delivery_date or '' }}</span>
+    {% endif %}
+     
+                    </td>
+                    <td class="w-medium delivery-month-cell">{{ r.delivery_month or '' }}</td>
+                    <td class="w-medium">{{ r.location }}</td>
+                    <td class="w-medium">{{ r.ean }}</td>
+                    <td class="w-large">{{ r.description }}</td>
+                    <td class="w-small">
+                        <input type="number" value="{{ r.caselot }}" data-id="{{r.id}}" data-field="caselot" oninput="triggerUpdate(this)">
+                    </td>
+                    <td class="w-small">
+                        <input type="number" value="{{ r.quantity }}" data-id="{{r.id}}" data-field="quantity" oninput="triggerUpdate(this)">
+                    </td>
+                    <td class="w-small">
+                        <input type="number" value="{{ r.no_of_boxes }}" data-field="no_of_boxes" readonly style="background:#f4f4f4;">
+                    </td>
+                    <td class="w-small">
+                        <select data-id="{{r.id}}" 
+                           onchange="saveToServer('{{r.id}}', 'factory', this.value, this)" 
+                           class="form-select">
+                        <option value="">-- Select --</option>
+                        {% for f in factories %}
+                        <option value="{{ f }}" {% if r.factory == f %}selected{% endif %}>{{ f }}</option>
+                        {% endfor %}
+                    </select>
+                    </td>
+                    <td class="w-medium ex-factory-cell">{{ r.ex_factory_date or '' }}</td>
+                    <td class="w-large">
+                      <textarea data-id="{{r.id}}" 
+                       onblur="saveToServer('{{r.id}}', 'factory_remarks', this.value, this)" 
+                       class="form-control">{{ r.factory_remarks or '' }}</textarea>
+                    </td>
+                    <td class="w-small">
+                        <input value="{{ r.dispatched_box }}" data-id="{{r.id}}" data-field="dispatched_box" oninput="triggerUpdate(this)">
+                    </td>
+                    <td class="w-small">
+                        <input value="{{ r.dispatched_qty }}" readonly data-field="dispatched_qty">
+                    </td>
+                    <td class="w-small" data-field="balance">{{ r.balance }}</td>
+                    <td class="w-medium">
+                        <select data-id="{{r.id}}" data-field="status" onchange="saveToServer('{{r.id}}', 'status', this.value, this)" 
+    class="form-select">
+                            <option value="Pending" {% if r.status=='Pending' %}selected{% endif %}>Pending</option>
+                            <option value="Dispatched" {% if r.status=='Dispatched' %}selected{% endif %}>Dispatched</option>
+                            <option value="Cancelled" {% if r.status=='Cancelled' %}selected{% endif %}>Cancelled</option>
+                        </select>
+                    </td>
+                    <td class="w-medium">
+                            <input type="date" 
+       value="{{ r.dispatch_date_iso if r.dispatch_date_iso else '' }}" 
+       onchange="saveToServer('{{r.id}}', 'dispatch_date', this.value, this)">
+                    </td>
+                    <td class="w-medium">
+                        <select data-id="{{r.id}}" data-field="transporter" onchange="saveToServer('{{r.id}}', 'transporter', this.value, this)" class="form-select">
+                            <option value="">-- Select --</option>
+                            {% for t in transporters %}
+                            <option value="{{t}}" {% if r.transporter == t %}selected{% endif %}>{{t}}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td class="w-medium">
+                      <input type="date" value="{{ r.grn_date_iso if r.grn_date_iso else '' }}" 
+           data-id="{{ r.id }}" data-field="grn_date" 
+           onchange="triggerUpdate(this, true)">   
+                    </td>
+                    <td class="w-medium grn-status-cell">{{ r.grn_status or 'Pending' }}</td>
+                        
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
