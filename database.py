@@ -128,13 +128,19 @@ def get_style_and_buyer_from_db(ean: str):
 def initialize_db():
     """Create all tables if they don't exist"""
     # Import all models to ensure they're registered with Base
-    # This must be done before create_all() is called
     from models.user import User
     from models.po_item import POItem
     from models.style_master import StyleMaster
     
-    # Create all tables (users, po_items, style_master)
-    Base.metadata.create_all(bind=engine)
+    try:
+        # Create all tables (users, po_items, style_master)
+        Base.metadata.create_all(bind=engine)
+        
+        if DATABASE_URL and not DATABASE_URL.startswith('sqlite'):
+            print(f"✓ Database initialized: PostgreSQL")
+        else:
+            print(f"✓ Database initialized: SQLite (fallback)")
+            
     except Exception as e:
         # This will show the actual error message in your app UI
         st.error(f"Actual Connection Error: {str(e)}")
@@ -158,6 +164,7 @@ if __name__ == "__main__":
     print("  - po_items: id (PRIMARY KEY), ean (FOREIGN KEY -> style_master.ean)")
     print("\n✓ Foreign key relationship established:")
     print("  po_items.ean -> style_master.ean (EAN links the tables)")
+
 
 
 
