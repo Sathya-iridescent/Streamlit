@@ -20,7 +20,7 @@ if st.sidebar.button("Create Master Admin"):
         if not exists:
             new_admin = User(
                 username="admin",
-                password=generate_password_hash("Admin@123"),
+                password_hash=generate_password_hash("Admin@123"),
                 role="admin"
             )
             db.add(new_admin)
@@ -94,6 +94,7 @@ else:
     elif choice == "Style Master":
         st.header("Style Master Management")
         # Logic to view/add styles from your StyleMaster model
+
 
 
 
