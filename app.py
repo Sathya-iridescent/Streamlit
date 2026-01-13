@@ -209,9 +209,9 @@ with tab3:
 
         session.commit() # Save everything to the database
         
-    if processed_count > 0:
-        st.success(f"Successfully processed {processed_count} files!")
-        st.rerun() 
+        if processed_count > 0:
+            st.success(f"Successfully processed {processed_count} files!")
+            st.rerun() 
 
 # --- TAB 4: MONTHLY SUMMARY ---
 with tab4:
@@ -241,6 +241,7 @@ with tab4:
                 file_name="monthly_summary.csv",
                 mime="text/csv"
             )
+
 
 
 
