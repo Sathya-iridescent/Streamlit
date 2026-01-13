@@ -13,7 +13,7 @@ class POItem(Base):
     """
     __tablename__ = 'po_items'
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(String, primary_key=True, autoincrement=True)
     
     # Foreign Key to style_master (EAN links to style_master.ean)
     ean = Column(String, ForeignKey('style_master.ean', ondelete='SET NULL'), nullable=True, index=True)
@@ -113,5 +113,6 @@ class POItem(Base):
     
     def __repr__(self):
         return f'<POItem {self.po_number}>'
+
 
 
