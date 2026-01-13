@@ -28,17 +28,40 @@ def apply_ex_factory_logic(location, delivery_date_str):
 
 def get_row_colors(row):
     """Priority highlighting: Red (Overdue) > Yellow (Due Soon) > Orange (Amended)"""
-    # Note: Replace 'calculate_exfactory_flag' with your logic if helper not imported
-    # flag = calculate_exfactory_flag(row['ex_factory_date'])
     
-    # Simple logic placeholder for flag:
     status = row.get('status', 'Pending')
+    is_amended = row.get('is_amended', False)
+    ex_fty_str = row.get('ex_factory_date', '')
     
+    # 1. Dispatched (Grey) - Highest Priority (Completed)
     if status == 'Dispatched':
         return ['background-color: #D3D3D3; color: #333'] * len(row)
-    # Add your specific flag logic here...
-    return [''] * len(row)
 
+    # Date Logic for Overdue and Due Soon
+    try:
+        today = datetime.now().date()
+        # Convert string "13.01.2026" to date object
+        ex_fty_date = datetime.strptime(ex_fty_str, "%d.%m.%Y").date()
+        days_diff = (ex_fty_date - today).days
+
+        # 2. Overdue (Red): Ex-Factory date has passed
+        if days_diff < 0:
+            return ['background-color: #FA002F; color: white'] * len(row)
+        
+        # 3. Due Soon (Yellow): Ex-Factory is within next 3 days
+        elif 0 <= days_diff <= 3:
+            return ['background-color: #FFFF00; color: black'] * len(row)
+            
+    except Exception:
+        # If date format is wrong, skip date-based coloring
+        pass
+
+    # 4. Amended/Revised (Orange): If not Red or Yellow
+    if is_amended:
+        return ['background-color: #FF8300; color: white'] * len(row)
+
+    # Default (No color)
+    return [''] * len(row)
 # --- 2. CONFIG & STYLING ---
 st.set_page_config(layout="wide", page_title="PO Operations Master")
 
@@ -242,6 +265,7 @@ with tab4:
                 file_name="monthly_summary.csv",
                 mime="text/csv"
             )
+
 
 
 
