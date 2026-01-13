@@ -94,55 +94,81 @@ with tab2:
             st.cache_data.clear()
             st.rerun()
 
-with tab3:
-  if st.button("Process All Files", type="primary") and upload_files:
-        processed_count = 0
-        with get_db_session() as session:
-            for f in uploaded_files:
-                try:
-                    file_bytes = f.getvalue()
-                    doc = fitz.open(stream=file_bytes, filetype="pdf")
-                    text_content = "".join(page.get_text() for page in doc)
-                    
-                    # --- CALL THE EXTRACTOR ---
-                    items = extract_items(text_content, f.name)
-                    
-                    if items:
-                        # 1. Get the PO # from the first item to clear old data
-                        first_po_no = str(items[0].get('PO #', ''))
-                        
-                        # 2. DELETE old items for this PO (Clean Slate for this PO)
-                        session.query(POItem).filter(POItem.po_number == first_po_no).delete()
-                        
-                        # 3. ADD each item found in the PDF as a new row
-                        for item in items:
-                            ex_fty = apply_ex_factory_logic(item.get('Location', ''), item.get('Delivery Date', ''))
-                            
-                            new_row = POItem(
-                                po_number=str(item.get('PO #', '')),
-                                ean=str(item.get('EAN NO', '')),
-                                delivery_date=item.get('Delivery Date', ''),
-                                ex_factory_date=ex_fty,
-                                location=item.get('Location', ''),
-                                quantity=int(item.get('Quantity', 0)),
-                                filename=f.name,
-                                status="Pending",
-                                is_amended=False  # You can check filename for 'Revised' here
-                            )
-                            session.add(new_row)
-                        
-                        processed_count += 1
-                    doc.close()
 
-                except Exception as e:
-                    st.error(f"Error processing {f.name}: {e}")
+ # --- TAB 3: UPLOAD ---
+with tab3:
+    st.header("📤 Upload Multiple PO PDFs")
+    
+    st.info("""
+    **Instructions:**
+    - Select one or more PDF files.
+    - If a PO has multiple styles, all will be extracted.
+    - Click 'Process All Files' to update the Dashboard.
+    """)
+    
+    # 1. THE UPLOADER (This is the box you were missing)
+    uploaded_files = st.file_uploader(
+        "Select PDF Files", 
+        accept_multiple_files=True, 
+        type=['pdf'],
+        key="po_file_uploader" # Unique key prevents UI glitches
+    )
+    
+    # 2. THE PROCESS BUTTON
+    if st.button("Process All Files", type="primary"):
+        if uploaded_files:
+            processed_count = 0
+            with get_db_session() as session:
+                for f in uploaded_files:
+                    try:
+                        file_bytes = f.getvalue()
+                        doc = fitz.open(stream=file_bytes, filetype="pdf")
+                        text_content = "".join(page.get_text() for page in doc)
+                        
+                        # Extract list of items (handles multiple styles/items per PO)
+                        items = extract_items(text_content, f.name)
+                        
+                        if items:
+                            # Cleanup: Remove old data for this specific PO 
+                            # so we don't get duplicates if re-uploading
+                            first_po = str(items[0].get('PO #', ''))
+                            session.query(POItem).filter(POItem.po_number == first_po).delete()
+                            
+                            for item in items:
+                                # Calculate Ex-Factory [cite: 2026-01-11]
+                                ex_fty = apply_ex_factory_logic(
+                                    item.get('Location', ''), 
+                                    item.get('Delivery Date', '')
+                                )
+                                
+                                # Add each style as a new row (using the Serial ID)
+                                new_row = POItem(
+                                    po_number=str(item.get('PO #', '')),
+                                    ean=str(item.get('EAN NO', '')),
+                                    delivery_date=item.get('Delivery Date', ''),
+                                    ex_factory_date=ex_fty,
+                                    location=item.get('Location', ''),
+                                    quantity=int(item.get('Quantity', 0)),
+                                    filename=f.name,
+                                    status="Pending"
+                                )
+                                session.add(new_row)
+                            
+                            processed_count += 1
+                        doc.close()
+                        
+                    except Exception as e:
+                        st.error(f"Error processing {f.name}: {e}")
+                
+                # Final Save
+                session.commit()
             
-            # Save everything to the database at once
-            session.commit()
-        
-        if processed_count > 0:
-            st.cache_data.clear() # Refresh the Dashboard data
-            st.success(f"Successfully processed {processed_count} files!")
-            st.rerun()
+            if processed_count > 0:
+                st.cache_data.clear() # Clear dashboard cache
+                st.success(f"Successfully processed {processed_count} files!")
+                st.rerun()
+        else:
+            st.warning("Please select at least one PDF file first.")
+
 
 
