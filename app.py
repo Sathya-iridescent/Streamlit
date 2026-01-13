@@ -12,11 +12,13 @@ if st.sidebar.button("⚠️ EMERGENCY: Reset PO Table"):
     with engine.connect() as conn:
         # This force-deletes the old "Integer" table
         conn.execute(text("DROP TABLE IF EXISTS po_items CASCADE"))
+        conn.execute(text("DROP TABLE IF EXISTS style_master CASCADE"))
         conn.commit()
-    
-    # This creates the new "String" table based on your current models.py
+    from models import Base
     Base.metadata.create_all(engine)
-    st.sidebar.success("Database Reset! You can now upload large PO numbers.")
+    st.sidebar.success("Database Rebuilt with STRING columns. Upload now!")   
+    
+  
 # Assuming these exist in your project:
 # from utils.helpers import calculate_exfactory_flag, calc_no_of_boxes 
 
@@ -276,6 +278,7 @@ with tab4:
                 file_name="monthly_summary.csv",
                 mime="text/csv"
             )
+
 
 
 
