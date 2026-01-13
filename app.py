@@ -95,24 +95,53 @@ with tab2:
             st.rerun()
 
 with tab3:
-   items = extract_items(text_content, f.name)
+  if st.button("Process All Files", type="primary") and uploaded_files:
+        processed_count = 0
+        with get_db_session() as session:
+            for f in uploaded_files:
+                try:
+                    file_bytes = f.getvalue()
+                    doc = fitz.open(stream=file_bytes, filetype="pdf")
+                    text_content = "".join(page.get_text() for page in doc)
+                    
+                    # --- CALL THE EXTRACTOR ---
+                    items = extract_items(text_content, f.name)
+                    
+                    if items:
+                        # 1. Get the PO # from the first item to clear old data
+                        first_po_no = str(items[0].get('PO #', ''))
+                        
+                        # 2. DELETE old items for this PO (Clean Slate for this PO)
+                        session.query(POItem).filter(POItem.po_number == first_po_no).delete()
+                        
+                        # 3. ADD each item found in the PDF as a new row
+                        for item in items:
+                            ex_fty = apply_ex_factory_logic(item.get('Location', ''), item.get('Delivery Date', ''))
+                            
+                            new_row = POItem(
+                                po_number=str(item.get('PO #', '')),
+                                ean=str(item.get('EAN NO', '')),
+                                delivery_date=item.get('Delivery Date', ''),
+                                ex_factory_date=ex_fty,
+                                location=item.get('Location', ''),
+                                quantity=int(item.get('Quantity', 0)),
+                                filename=f.name,
+                                status="Pending",
+                                is_amended=False  # You can check filename for 'Revised' here
+                            )
+                            session.add(new_row)
+                        
+                        processed_count += 1
+                    doc.close()
 
-for item in items:
-    po_val = str(item.get('PO #', ''))
-    ean_val = str(item.get('EAN NO', ''))
-    
-    # We create a NEW row for every item found in the PDF
-    new_item_row = POItem(
-        po_number=po_val,
-        ean=ean_val,
-        delivery_date=item.get('Delivery Date'),
-        location=item.get('Location'),
-        quantity=int(item.get('Quantity', 0)),
-        ex_factory_date=apply_ex_factory_logic(item.get('Location'), item.get('Delivery Date')),
-        filename=f.name,
-        status="Pending",
-        is_amended=False
-    )
-    session.add(new_item_row) 
+                except Exception as e:
+                    st.error(f"Error processing {f.name}: {e}")
+            
+            # Save everything to the database at once
+            session.commit()
+        
+        if processed_count > 0:
+            st.cache_data.clear() # Refresh the Dashboard data
+            st.success(f"Successfully processed {processed_count} files!")
+            st.rerun()
 
-session.commit()
