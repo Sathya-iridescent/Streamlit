@@ -169,37 +169,37 @@ with tab3:
     if st.button("Process All Files", type="primary") and uploaded_files:
         processed_count = 0
         with get_db_session() as session:
-        for f in uploaded_files:
-            try:  # <--- Start of the try block
-                file_bytes = f.getvalue()
-                doc = fitz.open(stream=file_bytes, filetype="pdf")
-                text = "".join(page.get_text() for page in doc)
-                items = extract_items(text, f.name)
+            for f in uploaded_files:
+                try:  # <--- Start of the try block
+                   file_bytes = f.getvalue()
+                   doc = fitz.open(stream=file_bytes, filetype="pdf")
+                   text = "".join(page.get_text() for page in doc)
+                   items = extract_items(text, f.name)
                 
-                for item in items:
-                    po_num = str(item.get('PO #', ''))
-                    ex_fty = apply_ex_factory_logic(item.get('Location', ''), item.get('Delivery Date', ''))
+                   for item in items:
+                       po_num = str(item.get('PO #', ''))
+                       ex_fty = apply_ex_factory_logic(item.get('Location', ''), item.get('Delivery Date', ''))
                     
-                    # Logic to check for existing/amended POs
-                    existing_po = session.get(POItem, po_num)
+                       # Logic to check for existing/amended POs
+                       existing_po = session.get(POItem, po_num)
                     
-                    if existing_po:
-                        existing_po.delivery_date = item.get('Delivery Date', '')
-                        existing_po.ex_factory_date = ex_fty
-                        existing_po.is_amended = True
-                        st.info(f"Updated Amended PO: {po_num}")
-                    else:
-                        po_entry = POItem(
-                            po_number=po_num,
-                            ean=str(item.get('EAN NO', '')),
-                            delivery_date=item.get('Delivery Date', ''),
-                            ex_factory_date=ex_fty,
-                            location=item.get('Location', ''),
-                            quantity=int(item.get('Quantity', 0)),
-                            status="Pending",
-                            is_amended=False
-                        )
-                        session.add(po_entry)
+                       if existing_po:
+                           existing_po.delivery_date = item.get('Delivery Date', '')
+                           existing_po.ex_factory_date = ex_fty
+                           existing_po.is_amended = True
+                           st.info(f"Updated Amended PO: {po_num}")
+                       else:
+                           po_entry = POItem(
+                              po_number=po_num,
+                              ean=str(item.get('EAN NO', '')),
+                              delivery_date=item.get('Delivery Date', ''),
+                              ex_factory_date=ex_fty,
+                              location=item.get('Location', ''),
+                              quantity=int(item.get('Quantity', 0)),
+                              status="Pending",
+                              is_amended=False
+                          )
+                          session.add(po_entry)
                 
                 processed_count += 1
                 doc.close()
@@ -241,6 +241,7 @@ with tab4:
                 file_name="monthly_summary.csv",
                 mime="text/csv"
             )
+
 
 
 
