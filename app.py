@@ -95,7 +95,7 @@ with tab2:
             st.rerun()
 
 with tab3:
-  if st.button("Process All Files", type="primary") and uploaded_files:
+  if st.button("Process All Files", type="primary") and upload_files:
         processed_count = 0
         with get_db_session() as session:
             for f in uploaded_files:
@@ -144,4 +144,5 @@ with tab3:
             st.cache_data.clear() # Refresh the Dashboard data
             st.success(f"Successfully processed {processed_count} files!")
             st.rerun()
+
 
