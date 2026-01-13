@@ -95,7 +95,7 @@ with tab1:
             st.success("Changes saved successfully!")
     else:
         st.info("No records found. Please upload a PO PDF to begin.")
-        if not df.empty:
+    if not df.empty:
     # Convert DataFrame to Excel format in memory
         import io
     buffer = io.BytesIO()
@@ -216,5 +216,6 @@ with tab4:
                 file_name="monthly_summary.csv",
                 mime="text/csv"
             )
+
 
 
