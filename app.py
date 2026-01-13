@@ -22,7 +22,7 @@ def logout():
 
 if not st.session_state.authenticated:
     # --- LOGIN SCREEN ---
-    st.title("📦 PO Extract & Warehouse Portal")
+    st.title("📦 DMart Dashboard")
     
     with st.form("login_form"):
         username = st.text_input("Username")
@@ -70,5 +70,6 @@ else:
     elif choice == "Style Master":
         st.header("Style Master Management")
         # Logic to view/add styles from your StyleMaster model
+
 
 
