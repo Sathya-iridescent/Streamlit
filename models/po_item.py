@@ -23,7 +23,7 @@ class POItem(Base):
     
     # File & PO Information
     filename = Column(String)
-    po_number = Column(String, index=True)
+    po_number = Column(String)
     po_date = Column(String)
     
     # Product Information (can be populated from style_master via JOIN)
@@ -113,6 +113,7 @@ class POItem(Base):
     
     def __repr__(self):
         return f'<POItem {self.po_number}>'
+
 
 
 
