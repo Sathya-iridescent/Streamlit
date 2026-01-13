@@ -177,11 +177,11 @@ with tab3:
                    items = extract_items(text, f.name)
                 
                    for item in items:
-                       po_num_str= str(item.get('PO #', ''))
+                       po_id= str(item.get('PO #', ''))
                        ex_fty = apply_ex_factory_logic(item.get('Location', ''), item.get('Delivery Date', ''))
                     
                        # Logic to check for existing/amended POs
-                       existing_po = session.get(POItem, po_num_str)
+                       existing_po = session.get(POItem, po_id)
                     
                        if existing_po:
                            existing_po.delivery_date = item.get('Delivery Date', '')
@@ -241,6 +241,7 @@ with tab4:
                 file_name="monthly_summary.csv",
                 mime="text/csv"
             )
+
 
 
 
