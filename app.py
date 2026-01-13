@@ -2,7 +2,7 @@ import streamlit as st
 import os
 from datetime import datetime
 # Keep your existing imports
-from database import initialize_db, get_db_session
+from database import initialize_db, get_db_session, Session local
 from models import User, POItem, StyleMaster
 from config import FACTORIES, TRANSPORTERS, BUYERS
 from werkzeug.security import generate_password_hash
@@ -94,6 +94,7 @@ else:
     elif choice == "Style Master":
         st.header("Style Master Management")
         # Logic to view/add styles from your StyleMaster model
+
 
 
 
