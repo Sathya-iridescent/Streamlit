@@ -4,7 +4,7 @@ import io
 import fitz
 from datetime import datetime, timedelta
 from database import get_db_session
-from models import POItem, StyleMaster
+from models import POItem, StyleMaster, Base
 from extractor import extract_items
 if st.sidebar.button("⚠️ EMERGENCY: Reset PO Table"):
     from database import engine, Base
@@ -14,7 +14,7 @@ if st.sidebar.button("⚠️ EMERGENCY: Reset PO Table"):
         conn.execute(text("DROP TABLE IF EXISTS po_items CASCADE"))
         conn.execute(text("DROP TABLE IF EXISTS style_master CASCADE"))
         conn.commit()
-    from models import Base
+   
     Base.metadata.create_all(engine)
     st.sidebar.success("Database Rebuilt with STRING columns. Upload now!")   
     
@@ -278,6 +278,7 @@ with tab4:
                 file_name="monthly_summary.csv",
                 mime="text/csv"
             )
+
 
 
 
